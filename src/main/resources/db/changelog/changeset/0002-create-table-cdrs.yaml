@@ -1,0 +1,44 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0002-create-table-cdrs
+      author: is6769
+      changes:
+        - createTable:
+            tableName: cdrs
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: call_type
+                  type: varchar(200)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: caller_number
+                  type: varchar(200)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: called_number
+                  type: varchar(200)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: start_date_time
+                  type: datetime
+                  constraints:
+                    nullable: false
+              - column:
+                  name: finish_date_time
+                  type: datetime
+                  constraints:
+                    nullable: false
+
+
+
+
