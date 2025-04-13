@@ -1,0 +1,5 @@
+spring:
+  application:
+    name: CDR-service
+  config:
+    import: configserver:http://config-server:8888

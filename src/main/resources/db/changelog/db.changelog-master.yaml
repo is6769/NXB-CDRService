@@ -1,7 +1,7 @@
 databaseChangeLog:
   - include:
-      file: db/changelog/changeset/0001-create-table-subscribers.yaml
+      file: db/changelog/changeset/0001-create-table-subscribers.sql
   - include: 
-      file: db/changelog/changeset/0002-create-table-cdrs.yaml
+      file: db/changelog/changeset/0002-create-table-cdrs.sql
   - include:
-      file: db/changelog/changeset/0003-insert-initial-data-for-subscribers.yaml
+      file: db/changelog/changeset/0003-insert-initial-data-for-subscribers.sql
