@@ -26,7 +26,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Cdr implements Serializable {
+public class Cdr {
 
     /**
      * Уникальный идентификатор записи CDR.
@@ -74,4 +74,5 @@ public class Cdr implements Serializable {
     @Enumerated(EnumType.STRING)
     @Column(name = "consumed_status", nullable = false)
     private ConsumedStatus consumedStatus;
+
 }

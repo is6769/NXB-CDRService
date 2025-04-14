@@ -1,6 +1,7 @@
 package org.example.cdrservice.services;
 
 import lombok.extern.slf4j.Slf4j;
+import org.example.cdrservice.dtos.CdrDTO;
 import org.example.cdrservice.entitites.Cdr;
 import org.example.cdrservice.entitites.ConsumedStatus;
 import org.example.cdrservice.repositories.CdrRepository;
@@ -37,7 +38,8 @@ public class CdrConsumerService {
         if (cdrRepository.findNumberOfNonConsumedRows()<10) return;
         List<Cdr> consumedCdrs = cdrRepository.findFirst10NonConsumedRecords();
 
-        rabbitTemplate.convertAndSend("cdr.direct","cdr.created",consumedCdrs);
+        List<CdrDTO> dtos = consumedCdrs.stream().map(CdrDTO::createFromEntity).toList();
+        rabbitTemplate.convertAndSend("cdr.direct","cdr.created",dtos);
 
         consumedCdrs.forEach(cdr -> {
             log.info(String.valueOf(cdr));
