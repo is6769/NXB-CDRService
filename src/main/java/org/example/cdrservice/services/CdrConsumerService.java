@@ -32,7 +32,6 @@ public class CdrConsumerService {
         this.rabbitTemplate = rabbitTemplate;
     }
 
-    @Async
     @Scheduled(fixedRate = 5000)
     public void consumeDataFromDB(){
         if (cdrRepository.findNumberOfNonConsumedRows()<10) return;

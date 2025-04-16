@@ -15,11 +15,10 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Service
 @Slf4j
@@ -30,7 +29,11 @@ public class CdrProducerService {
     @Value("${const.numberOfGenerationThreads}")
     private int numberOfGenerationThreads;
 
-    private final PriorityBlockingQueue<Cdr> generatedCdrsQueue = new PriorityBlockingQueue<>(5*1000,Comparator.comparing(Cdr::getFinishDateTime));
+    private PriorityQueue<Cdr> generatedCdrsQueue;
+
+    private final ReentrantLock lock = new ReentrantLock();
+
+    private final ConcurrentSkipListSet<Cdr> generatedCdrSet = new ConcurrentSkipListSet<>(Comparator.comparing(Cdr::getFinishDateTime));
 
     private final CdrRepository cdrRepository;
     private final SubscriberService subscriberService;
@@ -48,7 +51,8 @@ public class CdrProducerService {
         }
 
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-        log.info("DATA GENERATED");
+        generatedCdrsQueue = new PriorityQueue<>(generatedCdrSet.size(),Comparator.comparing(Cdr::getFinishDateTime));
+        generatedCdrsQueue.addAll(generatedCdrSet);
 
         doReadyToPersist = true;
 
@@ -62,11 +66,7 @@ public class CdrProducerService {
      */
     public void generateCdrForOneYear(){
 
-        log.info("STARTED DATA GENERATION IN THREAD: {}", Thread.currentThread().getName());
-
         List<Subscriber> subscribers = subscriberService.findAll();
-
-        List<Cdr> generatedCdrs = new ArrayList<>();
 
         LocalDateTime startDateTime = LocalDateTime.now().minusYears(1);
         LocalDateTime endDateTime = LocalDateTime.now();
@@ -95,7 +95,7 @@ public class CdrProducerService {
             Subscriber called = subscribers.get(randomCalledIndex);
 
 
-            long durationMillis = ThreadLocalRandom.current().nextLong(1,5*60*60*1000);
+            long durationMillis = ThreadLocalRandom.current().nextLong(1,5*60*60*60*1000);
 
             long callStartMillis = ThreadLocalRandom.current().nextLong(startMillis,endMillis-durationMillis);//endMillis-durationMillis to make [l;r) maybe redo
             long callFinishMillis = callStartMillis + durationMillis;
@@ -110,36 +110,76 @@ public class CdrProducerService {
             generatedCdr.setFinishDateTime(callFinishDateTime);
             generatedCdr.setConsumedStatus(ConsumedStatus.NEW);
 
-//            List<Cdr> cdrAfterSplit = tryToSplitCdr(generatedCdr);
-//            if (Objects.nonNull(cdrAfterSplit)){
-//                generatedCdrs.addAll(cdrAfterSplit);
-//            }
-
-            generatedCdrs.add(generatedCdr);
+            addToDataSet(generatedCdr);
         }
-
-        generatedCdrs.sort(Comparator.comparing(Cdr::getFinishDateTime));
-
-        generatedCdrsQueue.addAll(generatedCdrs);
     }
 
-//    private List<Cdr> tryToSplitCdr(Cdr generatedCdr) {
-//        var start = generatedCdr.getStartDateTime();
-//        var finish = generatedCdr.getFinishDateTime();
-//        long daysBetween = ChronoUnit.DAYS.between(start.toLocalDate(), finish.toLocalDate());
-//
-//        // If same day, no midnights crossed
-//        if (daysBetween == 0) return null;
-//
-//        // Perform action for each midnight crossing
-//        for (int i = 1; i <= daysBetween; i++) {
-//            LocalDateTime midnight = start.toLocalDate().plusDays(i).atStartOfDay();
-//            performActionAtMidnight(midnight);
-//        }
-//        if (generatedCdr.getStartDateTime().isBefore(LocalTime.MIDNIGHT) && generatedCdr.getFinishDateTime().isAfter(LocalTime.MIDNIGHT)){
-//
-//        }
-//    }
+    private void addToDataSet(Cdr cdr){
+        lock.lock();
+        try {
+            if (isCallAllowed(cdr.getCallerNumber(), cdr.getStartDateTime(), cdr.getFinishDateTime())
+                    && isCallAllowed(cdr.getCalledNumber(), cdr.getStartDateTime(), cdr.getFinishDateTime())) {
+                List<Cdr> splittedCdrs = splitIfCrossesMidnight(cdr);
+                for (Cdr cdr1 : splittedCdrs) {
+                    if (generatedCdrSet.contains(cdr1)) return;
+                }
+                generatedCdrSet.addAll(splittedCdrs);
+            }
+        }finally {
+            lock.unlock();
+        }
+    }
+
+
+    private boolean isCallAllowed(String phoneNumber, LocalDateTime newStart, LocalDateTime newFinish){
+        Set<Cdr> allCdrsFinishedAfterStartOfNew = generatedCdrSet.tailSet(Cdr.builder().finishDateTime(newStart).build());
+
+        for (Cdr existing: allCdrsFinishedAfterStartOfNew){
+            if ((Objects.equals(existing.getCallerNumber(), phoneNumber) ||
+                    Objects.equals(existing.getCalledNumber(), phoneNumber)) &&
+                    !(newFinish.isBefore(existing.getStartDateTime()) ||
+                            newStart.isAfter(existing.getFinishDateTime()))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private List<Cdr> splitIfCrossesMidnight(Cdr cdr) {
+        List<Cdr> result = new ArrayList<>();
+        var currentStart = cdr.getStartDateTime();
+        var currentEnd = cdr.getFinishDateTime();
+
+        while (currentStart.isBefore(currentEnd)){
+            LocalDateTime nextMidnight = currentStart.toLocalDate().plusDays(1).atStartOfDay();
+
+            if (nextMidnight.isAfter(currentEnd)){
+                result.add(new Cdr(
+                        null,
+                        cdr.getCallType(),
+                        cdr.getCallerNumber(),
+                        cdr.getCalledNumber(),
+                        currentStart,
+                        currentEnd,
+                        cdr.getConsumedStatus()
+                ));
+                break;
+            }
+
+            result.add(new Cdr(
+                    null,
+                    cdr.getCallType(),
+                    cdr.getCallerNumber(),
+                    cdr.getCalledNumber(),
+                    currentStart,
+                    nextMidnight,
+                    cdr.getConsumedStatus()
+            ));
+            currentStart=nextMidnight;
+        }
+        return result;
+    }
 
     @Async
     @Scheduled(fixedRate = 5000)
@@ -148,6 +188,7 @@ public class CdrProducerService {
         var numberOfCdrs = ThreadLocalRandom.current().nextInt(5);
         List<Cdr> cdrsToPersist = new ArrayList<>();
         for (int i = 0; i <numberOfCdrs ; i++) {
+            if (generatedCdrsQueue.isEmpty()) break;
             cdrsToPersist.add(generatedCdrsQueue.poll());
         }
 
