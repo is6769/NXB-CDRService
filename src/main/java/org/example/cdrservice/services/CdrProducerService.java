@@ -173,7 +173,7 @@ public class CdrProducerService {
                     cdr.getCallerNumber(),
                     cdr.getCalledNumber(),
                     currentStart,
-                    nextMidnight,
+                    nextMidnight.minusNanos(1),
                     cdr.getConsumedStatus()
             ));
             currentStart=nextMidnight;
