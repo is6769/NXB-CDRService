@@ -29,11 +29,11 @@ public class CdrProducerService {
     @Value("${const.numberOfGenerationThreads}")
     private int numberOfGenerationThreads;
 
-    private PriorityQueue<Cdr> generatedCdrsQueue;
+    private PriorityBlockingQueue<Cdr> generatedCdrsQueue = new PriorityBlockingQueue<>(10144,Comparator.comparing(Cdr::getFinishDateTime));
 
     private final ReentrantLock lock = new ReentrantLock();
 
-    private final ConcurrentSkipListSet<Cdr> generatedCdrSet = new ConcurrentSkipListSet<>(Comparator.comparing(Cdr::getFinishDateTime));
+    //private final ConcurrentSkipListSet<Cdr> generatedCdrSet = new ConcurrentSkipListSet<>(Comparator.comparing(Cdr::getFinishDateTime));
 
     private final CdrRepository cdrRepository;
     private final SubscriberService subscriberService;
@@ -51,8 +51,8 @@ public class CdrProducerService {
         }
 
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-        generatedCdrsQueue = new PriorityQueue<>(generatedCdrSet.size(),Comparator.comparing(Cdr::getFinishDateTime));
-        generatedCdrsQueue.addAll(generatedCdrSet);
+        //generatedCdrsQueue = new PriorityQueue<>(generatedCdrSet.size(),Comparator.comparing(Cdr::getFinishDateTime));
+        //generatedCdrsQueue.addAll(generatedCdrSet);
 
         doReadyToPersist = true;
 
@@ -120,25 +120,36 @@ public class CdrProducerService {
             if (isCallAllowed(cdr.getServicedMsisdn(), cdr.getStartDateTime(), cdr.getFinishDateTime())
                     && isCallAllowed(cdr.getOtherMsisdn(), cdr.getStartDateTime(), cdr.getFinishDateTime())) {
                 List<Cdr> splittedCdrs = splitIfCrossesMidnight(cdr);
-                for (Cdr cdr1 : splittedCdrs) {
-                    if (generatedCdrSet.contains(cdr1)) return;
-                }
-                generatedCdrSet.addAll(splittedCdrs);
+                List<Cdr> mirroredSplittedCdrs = makeMirrorCdrs(splittedCdrs);
+                generatedCdrsQueue.addAll(splittedCdrs);
+                generatedCdrsQueue.addAll(mirroredSplittedCdrs);
             }
         }finally {
             lock.unlock();
         }
     }
 
+    private List<Cdr> makeMirrorCdrs(List<Cdr> originalCdrs){
+        List<Cdr> mirrorCdrs = new ArrayList<>();
+        originalCdrs.forEach(cdr -> {
+            mirrorCdrs.add(Cdr.builder()
+                            .callType((cdr.getCallType().equals("01")) ? "02" : "01")
+                            .servicedMsisdn(cdr.getOtherMsisdn())
+                            .otherMsisdn(cdr.getServicedMsisdn())
+                            .startDateTime(cdr.getStartDateTime())
+                            .finishDateTime(cdr.getFinishDateTime())
+                            .consumedStatus(cdr.getConsumedStatus())
+                    .build());
+        });
+        return mirrorCdrs;
+    }
 
     private boolean isCallAllowed(String phoneNumber, LocalDateTime newStart, LocalDateTime newFinish){
-        Set<Cdr> allCdrsFinishedAfterStartOfNew = generatedCdrSet.tailSet(Cdr.builder().finishDateTime(newStart).build());
+        List<Cdr> allCdrsFinishedAfterStartOfNew = generatedCdrsQueue.stream().dropWhile(cdr -> newStart.isAfter(cdr.getFinishDateTime())).toList();
 
         for (Cdr existing: allCdrsFinishedAfterStartOfNew){
-            if ((Objects.equals(existing.getServicedMsisdn(), phoneNumber) ||
-                    Objects.equals(existing.getOtherMsisdn(), phoneNumber)) &&
-                    !(newFinish.isBefore(existing.getStartDateTime()) ||
-                            newStart.isAfter(existing.getFinishDateTime()))) {
+            if ((Objects.equals(existing.getServicedMsisdn(), phoneNumber) || Objects.equals(existing.getOtherMsisdn(), phoneNumber)) &&
+                    !(newFinish.isBefore(existing.getStartDateTime()) || newStart.isAfter(existing.getFinishDateTime()))) {
                 return false;
             }
         }
@@ -173,7 +184,7 @@ public class CdrProducerService {
                     cdr.getServicedMsisdn(),
                     cdr.getOtherMsisdn(),
                     currentStart,
-                    nextMidnight.minusNanos(1),
+                    nextMidnight.minusSeconds(1),
                     cdr.getConsumedStatus()
             ));
             currentStart=nextMidnight;
