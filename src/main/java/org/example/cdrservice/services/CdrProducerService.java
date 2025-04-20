@@ -104,8 +104,8 @@ public class CdrProducerService {
             var callFinishDateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(callFinishMillis),ZoneId.of("Europe/Moscow"));
 
             generatedCdr.setCallType(callType);
-            generatedCdr.setCallerNumber(caller.getMsisdn());
-            generatedCdr.setCalledNumber(called.getMsisdn());
+            generatedCdr.setServicedMsisdn(caller.getMsisdn());
+            generatedCdr.setOtherMsisdn(called.getMsisdn());
             generatedCdr.setStartDateTime(callStartDateTime);
             generatedCdr.setFinishDateTime(callFinishDateTime);
             generatedCdr.setConsumedStatus(ConsumedStatus.NEW);
@@ -117,8 +117,8 @@ public class CdrProducerService {
     private void addToDataSet(Cdr cdr){
         lock.lock();
         try {
-            if (isCallAllowed(cdr.getCallerNumber(), cdr.getStartDateTime(), cdr.getFinishDateTime())
-                    && isCallAllowed(cdr.getCalledNumber(), cdr.getStartDateTime(), cdr.getFinishDateTime())) {
+            if (isCallAllowed(cdr.getServicedMsisdn(), cdr.getStartDateTime(), cdr.getFinishDateTime())
+                    && isCallAllowed(cdr.getOtherMsisdn(), cdr.getStartDateTime(), cdr.getFinishDateTime())) {
                 List<Cdr> splittedCdrs = splitIfCrossesMidnight(cdr);
                 for (Cdr cdr1 : splittedCdrs) {
                     if (generatedCdrSet.contains(cdr1)) return;
@@ -135,8 +135,8 @@ public class CdrProducerService {
         Set<Cdr> allCdrsFinishedAfterStartOfNew = generatedCdrSet.tailSet(Cdr.builder().finishDateTime(newStart).build());
 
         for (Cdr existing: allCdrsFinishedAfterStartOfNew){
-            if ((Objects.equals(existing.getCallerNumber(), phoneNumber) ||
-                    Objects.equals(existing.getCalledNumber(), phoneNumber)) &&
+            if ((Objects.equals(existing.getServicedMsisdn(), phoneNumber) ||
+                    Objects.equals(existing.getOtherMsisdn(), phoneNumber)) &&
                     !(newFinish.isBefore(existing.getStartDateTime()) ||
                             newStart.isAfter(existing.getFinishDateTime()))) {
                 return false;
@@ -158,8 +158,8 @@ public class CdrProducerService {
                 result.add(new Cdr(
                         null,
                         cdr.getCallType(),
-                        cdr.getCallerNumber(),
-                        cdr.getCalledNumber(),
+                        cdr.getServicedMsisdn(),
+                        cdr.getOtherMsisdn(),
                         currentStart,
                         currentEnd,
                         cdr.getConsumedStatus()
@@ -170,8 +170,8 @@ public class CdrProducerService {
             result.add(new Cdr(
                     null,
                     cdr.getCallType(),
-                    cdr.getCallerNumber(),
-                    cdr.getCalledNumber(),
+                    cdr.getServicedMsisdn(),
+                    cdr.getOtherMsisdn(),
                     currentStart,
                     nextMidnight.minusNanos(1),
                     cdr.getConsumedStatus()

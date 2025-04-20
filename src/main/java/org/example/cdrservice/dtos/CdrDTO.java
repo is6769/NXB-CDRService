@@ -7,8 +7,8 @@ import java.time.LocalDateTime;
 public record CdrDTO (
         Long id,
         String callType,
-        String callerNumber,
-        String calledNumber,
+        String servicedMsisdn,
+        String otherMsisdn,
         LocalDateTime startDateTime,
         LocalDateTime finishDateTime
 ){
@@ -16,8 +16,8 @@ public record CdrDTO (
         return new CdrDTO(
                 cdr.getId(),
                 cdr.getCallType(),
-                cdr.getCallerNumber(),
-                cdr.getCalledNumber(),
+                cdr.getServicedMsisdn(),
+                cdr.getOtherMsisdn(),
                 cdr.getStartDateTime(),
                 cdr.getFinishDateTime()
         );

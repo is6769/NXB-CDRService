@@ -6,7 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
@@ -50,14 +49,14 @@ public class Cdr {
     /**
      * Номер телефона вызывающего абонента.
      */
-    @Column(name = "caller_number", nullable = false)
-    private String callerNumber;
+    @Column(name = "serviced_msisdn", nullable = false)
+    private String servicedMsisdn;
 
     /**
      * Номер телефона вызываемого абонента.
      */
-    @Column(name = "called_number", nullable = false)
-    private String calledNumber;
+    @Column(name = "other_msisdn", nullable = false)
+    private String otherMsisdn;
 
     /**
      * Дата и время начала вызова.
