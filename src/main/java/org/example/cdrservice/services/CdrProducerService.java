@@ -33,8 +33,6 @@ public class CdrProducerService {
 
     private final ReentrantLock lock = new ReentrantLock();
 
-    //private final ConcurrentSkipListSet<Cdr> generatedCdrSet = new ConcurrentSkipListSet<>(Comparator.comparing(Cdr::getFinishDateTime));
-
     private final CdrRepository cdrRepository;
     private final SubscriberService subscriberService;
 
@@ -51,8 +49,6 @@ public class CdrProducerService {
         }
 
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-        //generatedCdrsQueue = new PriorityQueue<>(generatedCdrSet.size(),Comparator.comparing(Cdr::getFinishDateTime));
-        //generatedCdrsQueue.addAll(generatedCdrSet);
 
         doReadyToPersist = true;
 

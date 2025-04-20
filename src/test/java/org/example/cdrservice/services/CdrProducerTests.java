@@ -67,12 +67,12 @@ public class CdrProducerTests {
         for (Cdr cdr : generatedCdrSet) {
             // Add to caller's list
             callsByPhoneNumber
-                .computeIfAbsent(cdr.getServicedMsisdn(), k -> new ArrayList<>())
+                .computeIfAbsent(cdr.getCallerNumber(), k -> new ArrayList<>())
                 .add(cdr);
             
             // Add to called's list
             callsByPhoneNumber
-                .computeIfAbsent(cdr.getOtherMsisdn(), k -> new ArrayList<>())
+                .computeIfAbsent(cdr.getCalledNumber(), k -> new ArrayList<>())
                 .add(cdr);
         }
         
@@ -109,9 +109,9 @@ public class CdrProducerTests {
                             "  Call 2: %s → %s (caller: %s, called: %s)\n\n",
                             phoneNumber,
                             call1.getStartDateTime(), call1.getFinishDateTime(), 
-                            call1.getServicedMsisdn(), call1.getOtherMsisdn(),
+                            call1.getCallerNumber(), call1.getCalledNumber(),
                             call2.getStartDateTime(), call2.getFinishDateTime(),
-                            call2.getServicedMsisdn(), call2.getOtherMsisdn()
+                            call2.getCallerNumber(), call2.getCalledNumber()
                         ));
                     }
                 }

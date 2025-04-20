@@ -34,8 +34,8 @@ public class CdrConsumerService {
 
     @Scheduled(fixedRate = 5000)
     public void consumeDataFromDB(){
-        if (cdrRepository.findNumberOfNonConsumedRows()<10) return;
-        List<Cdr> consumedCdrs = cdrRepository.findFirst10NonConsumedRecords();
+        if (cdrRepository.findNumberOfNonConsumedRows()<numberOfRecordsInCDR) return;
+        List<Cdr> consumedCdrs = cdrRepository.findFirstNonConsumedRecords(numberOfRecordsInCDR);
 
         List<CdrDTO> dtos = consumedCdrs.stream().map(CdrDTO::createFromEntity).toList();
         rabbitTemplate.convertAndSend("cdr.direct","cdr.created",dtos);
