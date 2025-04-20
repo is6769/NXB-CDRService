@@ -7,15 +7,10 @@ import org.example.cdrservice.entitites.ConsumedStatus;
 import org.example.cdrservice.repositories.CdrRepository;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.Limit;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.ThreadLocalRandom;
 
 @Slf4j
 @Service
@@ -45,9 +40,5 @@ public class CdrConsumerService {
             cdr.setConsumedStatus(ConsumedStatus.CONSUMED);
             cdrRepository.save(cdr);
         });
-
-
-
-
     }
 }
