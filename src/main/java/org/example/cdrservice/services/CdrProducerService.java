@@ -29,7 +29,7 @@ public class CdrProducerService {
     @Value("${const.numberOfGenerationThreads}")
     private int numberOfGenerationThreads;
 
-    private PriorityBlockingQueue<Cdr> generatedCdrsQueue = new PriorityBlockingQueue<>(10144,Comparator.comparing(Cdr::getFinishDateTime));
+    private PriorityBlockingQueue<Cdr> generatedCdrsQueue = new PriorityBlockingQueue<>(8192,Comparator.comparing(Cdr::getFinishDateTime));
 
     private final ReentrantLock lock = new ReentrantLock();
 
@@ -189,7 +189,7 @@ public class CdrProducerService {
     }
 
     @Async
-    @Scheduled(fixedRate = 5000)
+    @Scheduled(fixedRateString = "${const.scheduled.produce-cdr-rate}")
     public void persistQueuedData(){
         if (!doReadyToPersist) return;
         var numberOfCdrs = ThreadLocalRandom.current().nextInt(5);

@@ -7,6 +7,7 @@ import org.springframework.amqp.core.Queue;
 
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
@@ -15,14 +16,23 @@ import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 @Configuration
 public class RabbitMQConfig {
 
+    @Value("${const.rabbitmq.CDR_QUEUE_NAME}")
+    private String CDR_QUEUE_NAME;
+
+    @Value("${const.rabbitmq.CDR_EXCHANGE_NAME}")
+    private String CDR_EXCHANGE_NAME;
+
+    @Value("${const.rabbitmq.CDR_ROUTING_KEY}")
+    private String CDR_ROUTING_KEY;
+
     @Bean
     public org.springframework.amqp.core.Queue cdrQueue(){
-        return new Queue("cdr.queue");
+        return new Queue(CDR_QUEUE_NAME);
     }
 
     @Bean
     public DirectExchange cdrExchange(){
-        return new DirectExchange("cdr.direct",false,false);
+        return new DirectExchange(CDR_EXCHANGE_NAME,false,false);
     }
 
     @Bean
@@ -30,7 +40,7 @@ public class RabbitMQConfig {
         return BindingBuilder
                 .bind(cdrQueue())
                 .to(cdrExchange())
-                .with("cdr.created");
+                .with(CDR_ROUTING_KEY);
     }
 
     @Bean

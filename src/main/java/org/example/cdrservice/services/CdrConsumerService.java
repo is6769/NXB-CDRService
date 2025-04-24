@@ -19,6 +19,13 @@ public class CdrConsumerService {
     @Value("${const.numberOfRecordsInCDR}")
     private int numberOfRecordsInCDR;
 
+    @Value("${const.rabbitmq.CDR_EXCHANGE_NAME}")
+    private String CDR_EXCHANGE_NAME;
+
+    @Value("${const.rabbitmq.CDR_ROUTING_KEY}")
+    private String CDR_ROUTING_KEY;
+
+
     private final CdrRepository cdrRepository;
     private final RabbitTemplate rabbitTemplate;
 
@@ -27,13 +34,13 @@ public class CdrConsumerService {
         this.rabbitTemplate = rabbitTemplate;
     }
 
-    @Scheduled(fixedRate = 5000)
+    @Scheduled(fixedRateString = "${const.scheduled.consume-cdr-rate}")
     public void consumeDataFromDB(){
         if (cdrRepository.findNumberOfNonConsumedRows()<numberOfRecordsInCDR) return;
         List<Cdr> consumedCdrs = cdrRepository.findFirstNonConsumedRecords(numberOfRecordsInCDR);
 
         List<CdrDTO> dtos = consumedCdrs.stream().map(CdrDTO::createFromEntity).toList();
-        rabbitTemplate.convertAndSend("cdr.direct","cdr.created",dtos);
+        rabbitTemplate.convertAndSend(CDR_EXCHANGE_NAME,CDR_ROUTING_KEY,dtos);
 
         consumedCdrs.forEach(cdr -> {
             log.info(String.valueOf(cdr));
