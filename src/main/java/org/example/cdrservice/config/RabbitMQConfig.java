@@ -26,7 +26,7 @@ public class RabbitMQConfig {
     private String CDR_ROUTING_KEY;
 
     @Bean
-    public org.springframework.amqp.core.Queue cdrQueue(){
+    public Queue cdrQueue(){
         return new Queue(CDR_QUEUE_NAME);
     }
 
