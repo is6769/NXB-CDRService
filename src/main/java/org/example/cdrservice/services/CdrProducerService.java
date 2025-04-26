@@ -91,7 +91,7 @@ public class CdrProducerService {
             Subscriber called = subscribers.get(randomCalledIndex);
 
 
-            long durationMillis = ThreadLocalRandom.current().nextLong(1,5*60*60*60*1000);
+            long durationMillis = ThreadLocalRandom.current().nextLong(1,5*60*60*1000);
 
             long callStartMillis = ThreadLocalRandom.current().nextLong(startMillis,endMillis-durationMillis);//endMillis-durationMillis to make [l;r) maybe redo
             long callFinishMillis = callStartMillis + durationMillis;
