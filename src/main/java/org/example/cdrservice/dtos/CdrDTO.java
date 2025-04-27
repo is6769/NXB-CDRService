@@ -5,7 +5,6 @@ import org.example.cdrservice.entitites.Cdr;
 import java.time.LocalDateTime;
 
 public record CdrDTO (
-        Long id,
         String callType,
         String servicedMsisdn,
         String otherMsisdn,
@@ -14,7 +13,6 @@ public record CdrDTO (
 ){
     public static CdrDTO createFromEntity(Cdr cdr){
         return new CdrDTO(
-                cdr.getId(),
                 cdr.getCallType(),
                 cdr.getServicedMsisdn(),
                 cdr.getOtherMsisdn(),
