@@ -19,10 +19,10 @@ public class CdrConsumerService {
     @Value("${const.numberOfRecordsInCDR}")
     private int numberOfRecordsInCDR;
 
-    @Value("${const.rabbitmq.CDR_EXCHANGE_NAME}")
+    @Value("${const.rabbitmq.cdr.CDR_EXCHANGE_NAME}")
     private String CDR_EXCHANGE_NAME;
 
-    @Value("${const.rabbitmq.CDR_ROUTING_KEY}")
+    @Value("${const.rabbitmq.cdr.CDR_ROUTING_KEY}")
     private String CDR_ROUTING_KEY;
 
 
