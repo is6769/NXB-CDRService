@@ -2,9 +2,7 @@ package org.example.cdrservice.services;
 
 import org.example.cdrservice.entitites.Cdr;
 import org.example.cdrservice.entitites.ConsumedStatus;
-import org.example.cdrservice.entitites.Subscriber;
 import org.example.cdrservice.repositories.CdrRepository;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,13 +15,13 @@ import java.lang.reflect.Method;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.PriorityBlockingQueue;
-import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.tuple;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class CdrProducerServiceTest {
