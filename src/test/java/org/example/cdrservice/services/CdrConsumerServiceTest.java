@@ -45,6 +45,8 @@ class CdrConsumerServiceTest {
         testCdrs = createTestCdrs();
 
         ReflectionTestUtils.setField(cdrConsumerService, "numberOfRecordsInCDR", 5);
+        ReflectionTestUtils.setField(cdrConsumerService, "CDR_EXCHANGE_NAME", "cdr.direct");
+        ReflectionTestUtils.setField(cdrConsumerService, "CDR_ROUTING_KEY", "cdr.created");
     }
 
     @Test
