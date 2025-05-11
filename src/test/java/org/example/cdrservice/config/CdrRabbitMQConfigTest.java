@@ -28,7 +28,6 @@ public class CdrRabbitMQConfigTest {
 
     @BeforeEach
     void setUp() {
-        // Set up the configuration properties
         ReflectionTestUtils.setField(rabbitMQConfig, "CDR_EXCHANGE_NAME", exchangeName);
         ReflectionTestUtils.setField(rabbitMQConfig, "CDR_QUEUE_NAME", queueName);
         ReflectionTestUtils.setField(rabbitMQConfig, "CDR_ROUTING_KEY", routingKey);
@@ -39,30 +38,24 @@ public class CdrRabbitMQConfigTest {
 
     @Test
     void cdrExchange_shouldCreateExchangeWithCorrectName() {
-        // When
         DirectExchange exchange = rabbitMQConfig.cdrExchange();
         
-        // Then
         assertNotNull(exchange);
         assertEquals(exchangeName, exchange.getName());
     }
 
     @Test
     void cdrQueue_shouldCreateQueueWithCorrectName() {
-        // When
         Queue queue = rabbitMQConfig.cdrQueue();
-        
-        // Then
+
         assertNotNull(queue);
         assertEquals(queueName, queue.getName());
     }
 
     @Test
     void bindingCdr_shouldCreateBindingWithCorrectParameters() {
-
         Binding binding = rabbitMQConfig.cdrBinding();
-        
-        // Then
+
         assertNotNull(binding);
         assertEquals(routingKey, binding.getRoutingKey());
         assertEquals(queueName, binding.getDestination());
@@ -71,20 +64,16 @@ public class CdrRabbitMQConfigTest {
 
     @Test
     void deadLetterCdrExchange_shouldCreateExchangeWithCorrectName() {
-        // When
         DirectExchange exchange = rabbitMQConfig.deadLetterCdrExchange();
-        
-        // Then
+
         assertNotNull(exchange);
         assertEquals(exchangeName + deadLetterExchangePostfix, exchange.getName());
     }
 
     @Test
     void deadLetterCdrQueue_shouldCreateQueueWithCorrectName() {
-        // When
         Queue queue = rabbitMQConfig.deadLetterCdrQueue();
-        
-        // Then
+
         assertNotNull(queue);
         assertEquals(queueName + deadLetterQueuePostfix, queue.getName());
     }
@@ -92,8 +81,7 @@ public class CdrRabbitMQConfigTest {
     @Test
     void bindingDeadLetterCdr_shouldCreateBindingWithCorrectParameters() {
         Binding binding = rabbitMQConfig.deadLetterCdrBinding();
-        
-        // Then
+
         assertNotNull(binding);
         assertEquals(routingKey + deadLetterRoutingKeyPostfix, binding.getRoutingKey());
         assertEquals(queueName + deadLetterQueuePostfix, binding.getDestination());
