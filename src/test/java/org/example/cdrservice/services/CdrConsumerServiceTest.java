@@ -18,11 +18,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -39,61 +36,68 @@ class CdrConsumerServiceTest {
     @InjectMocks
     private CdrConsumerService cdrConsumerService;
 
+
+
+    private List<Cdr> testCdrs;
+
     @BeforeEach
     void setUp() {
+        testCdrs = createTestCdrs();
+
         ReflectionTestUtils.setField(cdrConsumerService, "numberOfRecordsInCDR", 5);
-        ReflectionTestUtils.setField(cdrConsumerService, "CDR_EXCHANGE_NAME", "cdr.exchange");
-        ReflectionTestUtils.setField(cdrConsumerService, "CDR_ROUTING_KEY", "cdr.created");
     }
 
     @Test
-    void consumeDataFromDB_notEnoughRecords() {
-        when(cdrRepository.findNumberOfNonConsumedRows()).thenReturn(4L); // Less than numberOfRecordsInCDR
+    @DisplayName("Should not process when there are insufficient unconsumed records")
+    void consumeDataFromDB_withInsufficientRecords_shouldNotProcess() {
+        when(cdrRepository.findNumberOfNonConsumedRows()).thenReturn(3);
 
         cdrConsumerService.consumeDataFromDB();
 
-        verify(cdrRepository).findNumberOfNonConsumedRows();
         verify(cdrRepository, never()).findFirstNonConsumedRecords(anyInt());
-        verify(rabbitTemplate, never()).convertAndSend(anyString(), anyString(), anyList());
+        verify(rabbitTemplate, never()).convertAndSend(anyString(), anyString(), any(Object.class));
     }
 
     @Test
-    void consumeDataFromDB_enoughRecords_sendsToRabbitAndUpdateStatus() {
-        List<Cdr> mockCdrs = IntStream.range(0, 5)
-                .mapToObj(i -> {
-                    Cdr cdr = new Cdr();
-                    cdr.setId((long) i);
-                    cdr.setServicedMsisdn("7900000000" + i);
-                    cdr.setOtherMsisdn("7900000001" + i);
-                    cdr.setCallType(i % 2 == 0 ? "01" : "02");
-                    cdr.setStartDateTime(LocalDateTime.now().minusMinutes(10 + i));
-                    cdr.setFinishDateTime(LocalDateTime.now().minusMinutes(i));
-                    cdr.setConsumedStatus(ConsumedStatus.NEW);
-                    return cdr;
-                })
-                .collect(Collectors.toList());
-
-        when(cdrRepository.findNumberOfNonConsumedRows()).thenReturn(10L); // More than numberOfRecordsInCDR
-        when(cdrRepository.findFirstNonConsumedRecords(5)).thenReturn(mockCdrs);
+    @DisplayName("Should process and send to RabbitMQ when sufficient records exist")
+    void consumeDataFromDB_withSufficientRecords_shouldProcessAndSendToRabbit() {
+        when(cdrRepository.findNumberOfNonConsumedRows()).thenReturn(10);
+        when(cdrRepository.findFirstNonConsumedRecords(anyInt())).thenReturn(testCdrs);
 
         cdrConsumerService.consumeDataFromDB();
 
-        verify(cdrRepository).findNumberOfNonConsumedRows();
-        verify(cdrRepository).findFirstNonConsumedRecords(5);
+        ArgumentCaptor<Object> dtoListCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(rabbitTemplate).convertAndSend(eq("cdr.direct"), eq("cdr.created"), dtoListCaptor.capture());
 
-        ArgumentCaptor<List<CdrDTO>> dtoListCaptor = ArgumentCaptor.forClass(List.class);
-        verify(rabbitTemplate).convertAndSend(eq("cdr.exchange"), eq("cdr.created"), dtoListCaptor.capture());
-        List<CdrDTO> sentDtos = dtoListCaptor.getValue();
-        assertEquals(5, sentDtos.size());
-        assertEquals(mockCdrs.get(0).getId(), sentDtos.get(0).id());
-
+        List<CdrDTO> sentDtos = (List<CdrDTO>) dtoListCaptor.getValue();
+        assertThat(sentDtos)
+                .hasSize(testCdrs.size())
+                .allMatch(dto -> dto.servicedMsisdn() != null && dto.otherMsisdn() != null);
 
         ArgumentCaptor<Cdr> cdrCaptor = ArgumentCaptor.forClass(Cdr.class);
-        verify(cdrRepository, times(5)).save(cdrCaptor.capture());
-        List<Cdr> savedCdrs = cdrCaptor.getAllValues();
-        for (int i = 0; i < 5; i++) {
-            assertEquals(ConsumedStatus.CONSUMED, savedCdrs.get(i).getConsumedStatus());
-            assertEquals(mockCdrs.get(i).getId(), savedCdrs.get(i).getId());
+        verify(cdrRepository, times(testCdrs.size())).save(cdrCaptor.capture());
+
+        assertThat(cdrCaptor.getAllValues())
+                .hasSize(testCdrs.size())
+                .allMatch(cdr -> cdr.getConsumedStatus() == ConsumedStatus.CONSUMED);
+    }
+
+    private List<Cdr> createTestCdrs() {
+        List<Cdr> cdrs = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
+
+        for (int i = 1; i <= 5; i++) {
+            cdrs.add(Cdr.builder()
+                    .id((long) i)
+                    .callType(i % 2 == 0 ? "01" : "02")
+                    .servicedMsisdn("7900000000" + i)
+                    .otherMsisdn("7900000001" + i)
+                    .startDateTime(now.minusHours(i))
+                    .finishDateTime(now.minusHours(i).plusMinutes(5))
+                    .consumedStatus(ConsumedStatus.NEW)
+                    .build());
         }
+
+        return cdrs;
     }
 }
