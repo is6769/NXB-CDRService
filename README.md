@@ -106,6 +106,14 @@
 - `const.rabbitmq.cdr.CDR_ROUTING_KEY`: ключ маршрутизации для сообщений CDR
 - `const.rabbitmq.dead-letter.*`: настройки для очереди "мертвых писем"
 
+### База данных
+
+**H2 Database**
+- JDBC URL: `jdbc:h2:mem:cdr-db`
+- Пользователь: `sa`
+- Пароль: `password`
+- Веб-консоль: http://localhost:8082/h2-console
+
 ### Структура базы данных
 
 База данных содержит следующие таблицы:
