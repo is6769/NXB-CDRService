@@ -259,7 +259,7 @@ public class CdrProducerService {
     @Scheduled(fixedRateString = "${const.scheduled.produce-cdr-rate}")
     public void persistQueuedData(){
         if (!doReadyToPersist) return;
-        var numberOfCdrs = ThreadLocalRandom.current().nextInt(5);
+        var numberOfCdrs = ThreadLocalRandom.current().nextInt(1,5);
         List<Cdr> cdrsToPersist = new ArrayList<>();
         for (int i = 0; i <numberOfCdrs ; i++) {
             if (generatedCdrsQueue.isEmpty()) break;
