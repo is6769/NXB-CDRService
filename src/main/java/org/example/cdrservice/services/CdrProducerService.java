@@ -23,17 +23,30 @@ import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.ReentrantLock;
 
+/**
+ * Сервис, отвечающий за генерацию CDR.
+ */
 @Service
 @Slf4j
 public class CdrProducerService {
 
+    /**
+     * Флаг, указывающий, завершена ли начальная генерация CDR и готовы ли данные к сохранению.
+     */
     private boolean doReadyToPersist = false;
 
     @Value("${const.numberOfGenerationThreads}")
     private int numberOfGenerationThreads;
 
+    /**
+     * Приоритетная очередь для хранения сгенерированных CDR перед их сохранением.
+     * CDR упорядочены по времени их завершения.
+     */
     private PriorityBlockingQueue<Cdr> generatedCdrsQueue = new PriorityBlockingQueue<>(8192,Comparator.comparing(Cdr::getFinishDateTime));
 
+    /**
+     * Блокировка для обеспечения потокобезопасного доступа к {@code generatedCdrsQueue} и связанным операциям.
+     */
     private final ReentrantLock lock = new ReentrantLock();
 
     private final CdrRepository cdrRepository;
@@ -44,6 +57,11 @@ public class CdrProducerService {
         this.subscriberService = subscriberService;
     }
 
+    /**
+     * Инициализирует процесс генерации CDR при запуске приложения.
+     * Запускает несколько потоков для параллельной генерации CDR за последний год.
+     * Устанавливает {@code doReadyToPersist} в true после завершения начальной генерации.
+     */
     @PostConstruct
     public void runInitialGeneration(){
         List<CompletableFuture<?>> futures = new ArrayList<>();
@@ -61,7 +79,8 @@ public class CdrProducerService {
 
     /**
      * Генерирует случайные записи CDR за последний год.
-     * Создает от 1000 до 2000 записей о звонках между абонентами.
+     * Создает от 1000 до 2000 записей о звонках между абонентами, найденными в системе.
+     * Каждая сгенерированная CDR затем обрабатывается и добавляется в набор данных.
      */
     public void generateCdrForOneYear(){
 
@@ -113,6 +132,15 @@ public class CdrProducerService {
         }
     }
 
+    /**
+     * Добавляет сгенерированную CDR в набор данных после необходимой обработки.
+     * Этот метод гарантирует, что вызов разрешен для обоих участвующих абонентов,
+     * разделяет CDR, если он пересекает полночь, создает зеркальную CDR, а затем добавляет
+     * все результирующие CDR (оригинальные, разделенные части и зеркальные) в {@code generatedCdrsQueue}.
+     * Эта операция потокобезопасна.
+     *
+     * @param cdr CDR для добавления в набор данных.
+     */
     private void addToDataSet(Cdr cdr){
         lock.lock();
         try {
@@ -128,13 +156,22 @@ public class CdrProducerService {
         }
     }
 
+    /**
+     * Создает зеркальные CDR для данного списка оригинальных CDR.
+     * Зеркальная CDR представляет другую сторону вызова. Например, если оригинальная CDR
+     * является исходящим вызовом для абонента А к Б, зеркальная CDR будет входящим вызовом
+     * для абонента Б от А.
+     *
+     * @param originalCdrs Список оригинальных CDR.
+     * @return Список зеркальных CDR.
+     */
     private List<Cdr> makeMirrorCdrs(List<Cdr> originalCdrs){
         List<Cdr> mirrorCdrs = new ArrayList<>();
         originalCdrs.forEach(cdr -> {
             mirrorCdrs.add(Cdr.builder()
-                            .callType((cdr.getCallType().equals("01")) ? "02" : "01")
-                            .servicedMsisdn(cdr.getOtherMsisdn())
-                            .otherMsisdn(cdr.getServicedMsisdn())
+                            .callType((cdr.getCallType().equals("01")) ? "02" : "01") // Меняем тип вызова на противоположный
+                            .servicedMsisdn(cdr.getOtherMsisdn()) // Обслуживаемый номер становится другим номером
+                            .otherMsisdn(cdr.getServicedMsisdn()) // Другой номер становится обслуживаемым
                             .startDateTime(cdr.getStartDateTime())
                             .finishDateTime(cdr.getFinishDateTime())
                             .consumedStatus(cdr.getConsumedStatus())
@@ -143,6 +180,17 @@ public class CdrProducerService {
         return mirrorCdrs;
     }
 
+    /**
+     * Проверяет, разрешен ли вызов для данного номера телефона в указанном временном диапазоне.
+     * Вызов не разрешен, если абонент уже участвует в другом вызове,
+     * который пересекается с временным диапазоном нового вызова.
+     * Эта проверка учитывает CDR, находящиеся в данный момент в {@code generatedCdrsQueue}.
+     *
+     * @param phoneNumber MSISDN абонента.
+     * @param newStart Дата и время начала нового вызова.
+     * @param newFinish Дата и время окончания нового вызова.
+     * @return {@code true}, если вызов разрешен, {@code false} в противном случае.
+     */
     private boolean isCallAllowed(String phoneNumber, LocalDateTime newStart, LocalDateTime newFinish){
         List<Cdr> allCdrsFinishedAfterStartOfNew = generatedCdrsQueue.stream().dropWhile(cdr -> newStart.isAfter(cdr.getFinishDateTime())).toList();
 
@@ -156,6 +204,16 @@ public class CdrProducerService {
         return true;
     }
 
+    /**
+     * Разделяет CDR на несколько CDR, если он пересекает одну или несколько полночей.
+     * Каждая результирующая CDR будет содержаться в пределах одного дня.
+     * Например, вызов с 23:00 Дня1 до 01:00 Дня2 будет разделен на
+     * две CDR: одну с 23:00 до 23:59:59 Дня1, и другую с 00:00:00 до 01:00 Дня2.
+     *
+     * @param cdr CDR для разделения.
+     * @return Список CDR, где каждая CDR не пересекает полночь. Если оригинальная CDR
+     *         не пересекает полночь, список будет содержать только оригинальную CDR.
+     */
     private List<Cdr> splitIfCrossesMidnight(Cdr cdr) {
         List<Cdr> result = new ArrayList<>();
         var currentStart = cdr.getStartDateTime();
@@ -191,6 +249,12 @@ public class CdrProducerService {
         return result;
     }
 
+    /**
+     * Периодически сохраняет пакет CDR из {@code generatedCdrsQueue} в базу данных.
+     * Этот метод запланирован для запуска с фиксированной скоростью, определенной {@code const.scheduled.produce-cdr-rate}.
+     * Он выполняется, только если {@code doReadyToPersist} равно true.
+     * Извлекает случайное количество CDR (до 5) из очереди и сохраняет их.
+     */
     @Async
     @Scheduled(fixedRateString = "${const.scheduled.produce-cdr-rate}")
     public void persistQueuedData(){

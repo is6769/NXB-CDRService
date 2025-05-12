@@ -9,11 +9,11 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * Сущность "Запись данных вызова" (Call Data Record - CDR).
+ * Сущность "Запись данных о вызове" (Call Data Record - CDR).
  * <p>
- * Содержит информацию об одном телефонном звонке между двумя абонентами,
- * включая время начала и окончания звонка, типа звонка, а также
- * номера вызывающего и вызываемого абонентов.
+ * Содержит подробную информацию об одной телекоммуникационной транзакции,
+ * такой как телефонный звонок. Включает тип вызова, участвующих абонентов,
+ * время начала и окончания, а также статус обработки.
  * </p>
  *
  * @author Сервис роуминговой агрегации
@@ -39,21 +39,18 @@ public class Cdr {
 
     /**
      * Тип вызова.
-     * <p>
-     * 01 - входящий вызов, 02 - исходящий вызов.
-     * </p>
      */
     @Column(name = "call_type", nullable = false)
     private String callType;
 
     /**
-     * Номер телефона вызывающего абонента.
+     * MSISDN (номер телефона) обслуживаемого абонента или абонента, которому выставляется счет за этот вызов.
      */
     @Column(name = "serviced_msisdn", nullable = false)
     private String servicedMsisdn;
 
     /**
-     * Номер телефона вызываемого абонента.
+     * MSISDN (номер телефона) другой стороны, участвующей в вызове.
      */
     @Column(name = "other_msisdn", nullable = false)
     private String otherMsisdn;
@@ -70,6 +67,9 @@ public class Cdr {
     @Column(name = "finish_date_time", nullable = false)
     private LocalDateTime finishDateTime;
 
+    /**
+     * Статус обработки этой CDR (например, NEW, CONSUMED).
+     */
     @Enumerated(EnumType.STRING)
     @Column(name = "consumed_status", nullable = false)
     private ConsumedStatus consumedStatus;

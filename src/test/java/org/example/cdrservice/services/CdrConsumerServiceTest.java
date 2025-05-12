@@ -24,6 +24,10 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+/**
+ * Тестовый класс для {@link CdrConsumerService}.
+ * Проверяет логику потребления CDR из репозитория и отправки их в RabbitMQ.
+ */
 @ExtendWith(MockitoExtension.class)
 class CdrConsumerServiceTest {
 
@@ -36,8 +40,6 @@ class CdrConsumerServiceTest {
     @InjectMocks
     private CdrConsumerService cdrConsumerService;
 
-
-
     private List<Cdr> testCdrs;
 
     @BeforeEach
@@ -49,8 +51,12 @@ class CdrConsumerServiceTest {
         ReflectionTestUtils.setField(cdrConsumerService, "CDR_ROUTING_KEY", "cdr.created");
     }
 
+    /**
+     * Тестирует сценарий, когда в базе данных недостаточно непотребленных записей.
+     * Ожидается, что сервис не будет пытаться извлечь или отправить CDR.
+     */
     @Test
-    @DisplayName("Should not process when there are insufficient unconsumed records")
+    @DisplayName("Не должен обрабатывать, если недостаточно непотребленных записей")
     void consumeDataFromDB_withInsufficientRecords_shouldNotProcess() {
         when(cdrRepository.findNumberOfNonConsumedRows()).thenReturn(3);
 
@@ -60,8 +66,12 @@ class CdrConsumerServiceTest {
         verify(rabbitTemplate, never()).convertAndSend(anyString(), anyString(), any(Object.class));
     }
 
+    /**
+     * Тестирует сценарий, когда в базе данных достаточно непотребленных записей.
+     * Ожидается, что сервис извлечет CDR, отправит их в RabbitMQ и обновит их статус.
+     */
     @Test
-    @DisplayName("Should process and send to RabbitMQ when sufficient records exist")
+    @DisplayName("Должен обрабатывать и отправлять в RabbitMQ при наличии достаточного количества записей")
     void consumeDataFromDB_withSufficientRecords_shouldProcessAndSendToRabbit() {
         when(cdrRepository.findNumberOfNonConsumedRows()).thenReturn(10);
         when(cdrRepository.findFirstNonConsumedRecords(anyInt())).thenReturn(testCdrs);
@@ -84,6 +94,10 @@ class CdrConsumerServiceTest {
                 .allMatch(cdr -> cdr.getConsumedStatus() == ConsumedStatus.CONSUMED);
     }
 
+    /**
+     * Вспомогательный метод для создания списка тестовых CDR.
+     * @return Список объектов {@link Cdr} для тестирования.
+     */
     private List<Cdr> createTestCdrs() {
         List<Cdr> cdrs = new ArrayList<>();
         LocalDateTime now = LocalDateTime.now();

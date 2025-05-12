@@ -30,6 +30,10 @@ import static org.assertj.core.api.AssertionsForClassTypes.tuple;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.*;
 
+/**
+ * Тестовый класс для {@link CdrProducerService}.
+ * Проверяет корректность генерации, обработки и сохранения CDR.
+ */
 @ExtendWith(MockitoExtension.class)
 class CdrProducerServiceTest {
 
@@ -45,8 +49,13 @@ class CdrProducerServiceTest {
     @Captor
     private ArgumentCaptor<List<Cdr>> cdrListCaptor;
 
+    /**
+     * Тестирует корректность разделения CDR, пересекающих полночь, методом {@code splitIfCrossesMidnight}.
+     * Ожидается, что CDR будет разделен на две части: до полуночи и после.
+     * @throws Exception если возникает ошибка при вызове приватного метода через рефлексию.
+     */
     @Test
-    @DisplayName("splitIfCrossesMidnight should correctly split CDRs that cross midnight")
+    @DisplayName("splitIfCrossesMidnight должен корректно разделять CDR, пересекающие полночь")
     void splitIfCrossesMidnight_shouldCorrectlySplitCdrsCrossingMidnight() throws Exception {
         LocalDateTime todayEvening = LocalDateTime.of(LocalDate.now(), LocalTime.of(23, 45, 0));
         LocalDateTime tomorrowMorning = todayEvening.plusHours(2);
@@ -73,8 +82,13 @@ class CdrProducerServiceTest {
             );
     }
 
+    /**
+     * Тестирует обработку CDR, охватывающих несколько дней, методом {@code splitIfCrossesMidnight}.
+     * Ожидается, что CDR будет разделен на соответствующее количество частей по дням.
+     * @throws Exception если возникает ошибка при вызове приватного метода через рефлексию.
+     */
     @Test
-    @DisplayName("splitIfCrossesMidnight should handle CDRs spanning multiple days")
+    @DisplayName("splitIfCrossesMidnight должен обрабатывать CDR, охватывающие несколько дней")
     void splitIfCrossesMidnight_shouldHandleCdrsSpanningMultipleDays() throws Exception {
         LocalDate today = LocalDate.now();
         LocalDateTime start = LocalDateTime.of(today, LocalTime.of(22, 0));
@@ -104,8 +118,13 @@ class CdrProducerServiceTest {
             });
     }
 
+    /**
+     * Тестирует создание корректных зеркальных записей методом {@code makeMirrorCdrs}.
+     * Проверяет, что тип вызова инвертируется, а номера абонентов меняются местами.
+     * @throws Exception если возникает ошибка при вызове приватного метода через рефлексию.
+     */
     @Test
-    @DisplayName("makeMirrorCdrs should create correct mirrored records")
+    @DisplayName("makeMirrorCdrs должен создавать корректные зеркальные записи")
     void makeMirrorCdrs_shouldCreateCorrectMirroredRecords() throws Exception {
         List<Cdr> originalCdrs = Arrays.asList(
             Cdr.builder()
@@ -165,8 +184,13 @@ class CdrProducerServiceTest {
         }
     }
 
+    /**
+     * Тестирует обнаружение пересекающихся вызовов для одного и того же абонента методом {@code isCallAllowed}.
+     * Проверяет различные сценарии пересечения и отсутствия пересечения вызовов.
+     * @throws Exception если возникает ошибка при вызове приватного метода через рефлексию.
+     */
     @Test
-    @DisplayName("isCallAllowed should detect overlapping calls for same subscriber")
+    @DisplayName("isCallAllowed должен обнаруживать пересекающиеся вызовы для одного абонента")
     void isCallAllowed_shouldDetectOverlappingCalls() throws Exception {
         PriorityBlockingQueue<Cdr> testQueue = new PriorityBlockingQueue<>(10,
                 Comparator.comparing(Cdr::getFinishDateTime));
@@ -230,8 +254,13 @@ class CdrProducerServiceTest {
         assertThat(result6).isTrue();
     }
 
+    /**
+     * Тестирует метод {@code generateCdrForOneYear}.
+     * Проверяет, что CDR создаются, помещаются в очередь и что разрешается их последующее сохранение.
+     * Также проверяются основные атрибуты сгенерированных CDR.
+     */
     @Test
-    @DisplayName("generateCdrForOneYear should create CDRs, queue them, and allow persistence")
+    @DisplayName("generateCdrForOneYear должен создавать CDR, помещать их в очередь и разрешать сохранение")
     void generateCdrForOneYear_shouldCreateCdrsForOneYear() {
         Subscriber subscriber1 = new Subscriber(1L, "79001111111");
         Subscriber subscriber2 = new Subscriber(2L, "79002222222");

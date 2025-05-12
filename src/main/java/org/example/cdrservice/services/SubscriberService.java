@@ -7,8 +7,8 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 /**
- * Сервис для работы с абонентами.
- * Предоставляет методы для поиска и проверки существования абонентов.
+ * Сервисный слой для управления сущностями {@link Subscriber}.
+ * Предоставляет методы для доступа к данным абонентов из репозитория.
  */
 @Service
 public class SubscriberService {
@@ -19,11 +19,6 @@ public class SubscriberService {
         this.subscriberRepository = subscriberRepository;
     }
 
-    /**
-     * Получает список всех абонентов.
-     *
-     * @return Список всех абонентов
-     */
     public List<Subscriber> findAll(){
         return subscriberRepository.findAll();
     }
